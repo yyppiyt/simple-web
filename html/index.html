@@ -2,7 +2,7 @@
 <html>
 
 <head>
-    <title>Synology API Test</title>
+    <title>Synology API + Database Test</title>
 </head>
 
 <body>
@@ -12,6 +12,15 @@
     <button onclick="callEcho()">Call Echo</button>
     <pre id="result2"></pre>
 
+    <h1>Messages</h1>
+    <input id="name" placeholder="Name">
+    <input id="message" placeholder="Message">
+    <button onclick="addMessage()">Add Message</button>
+
+    <pre id="message_result"></pre>
+
+
+
     <script>
         async function callApi() {
             const res = await fetch("/api/hello");
@@ -19,8 +28,6 @@
             document.getElementById("result").textContent =
                 JSON.stringify(data, null, 2);
         }
-    </script>
-    <script>
         async function callEcho() {
             fetch("/api/echo", {
                 method: "POST",
@@ -37,6 +44,30 @@
                     document.getElementById("result2").textContent = JSON.stringify(data, null, 2)
                 );
         }
+
+        async function loadMessages() {
+            const res = await fetch("/api/messages");
+            const data = await res.json();
+            document.getElementById("message_result").textContent =
+                JSON.stringify(data, null, 2);
+        }
+
+        async function addMessage() {
+            const name = document.getElementById("name").value;
+            const message = document.getElementById("message").value;
+
+            await fetch("/api/messages", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify({ name, message })
+            });
+
+            await loadMessages();
+        }
+
+        loadMessages();
     </script>
 </body>
 

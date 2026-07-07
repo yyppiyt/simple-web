@@ -161,3 +161,5 @@ cython_debug/
 
 credentials/
 .DS_Store
+sync.ffs_db
+/db/postgres
