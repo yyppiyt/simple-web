@@ -1,0 +1,19 @@
+services:
+  web:
+    image: nginx:stable-alpine
+    container_name: simple-web
+    restart: unless-stopped
+    ports:
+      - "8080:80"
+    volumes:
+      - /volume1/docker/simple-web/html:/usr/share/nginx/html:ro
+      - /volume1/docker/simple-web/nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      - api
+
+  api:
+    build: ./api
+    container_name: simple-api
+    restart: unless-stopped
+    expose:
+      - "3000"

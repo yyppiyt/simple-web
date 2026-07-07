@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>Synology API Test</title>
+</head>
+
+<body>
+    <h1>API Test</h1>
+    <button onclick="callApi()">Call API</button>
+    <pre id="result"></pre>
+    <button onclick="callEcho()">Call Echo</button>
+    <pre id="result2"></pre>
+
+    <script>
+        async function callApi() {
+            const res = await fetch("/api/hello");
+            const data = await res.json();
+            document.getElementById("result").textContent =
+                JSON.stringify(data, null, 2);
+        }
+    </script>
+    <script>
+        async function callEcho() {
+            fetch("/api/echo", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify({
+                    name: "Tom",
+                    message: "Hello"
+                })
+            })
+                .then(res => res.json())
+                .then(data =>
+                    document.getElementById("result2").textContent = JSON.stringify(data, null, 2)
+                );
+        }
+    </script>
+</body>
+
+</html>
