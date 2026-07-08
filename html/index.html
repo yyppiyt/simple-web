@@ -1,73 +1,607 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 
 <head>
-    <title>Synology API + Database Test</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simple Web Login</title>
+    <style>
+        :root {
+            color-scheme: light;
+            font-family: Arial, Helvetica, sans-serif;
+            line-height: 1.5;
+            color: #17211c;
+            background: #f6f8f7;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            min-height: 100vh;
+            background: #f6f8f7;
+        }
+
+        button,
+        input,
+        textarea {
+            font: inherit;
+        }
+
+        button {
+            border: 0;
+            border-radius: 6px;
+            padding: 0.7rem 1rem;
+            color: #ffffff;
+            background: #087f5b;
+            cursor: pointer;
+        }
+
+        button.secondary {
+            color: #17211c;
+            background: #e8efeb;
+        }
+
+        button:disabled {
+            cursor: not-allowed;
+            opacity: 0.6;
+        }
+
+        input,
+        textarea {
+            width: 100%;
+            border: 1px solid #cfd9d4;
+            border-radius: 6px;
+            padding: 0.75rem;
+            color: #17211c;
+            background: #ffffff;
+        }
+
+        textarea {
+            min-height: 110px;
+            resize: vertical;
+        }
+
+        label {
+            display: grid;
+            gap: 0.35rem;
+            font-weight: 700;
+        }
+
+        pre {
+            overflow: auto;
+            min-height: 3rem;
+            margin: 0;
+            border-radius: 6px;
+            padding: 0.75rem;
+            background: #17211c;
+            color: #e6f4ed;
+        }
+
+        .topbar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+            padding: 1.25rem clamp(1rem, 4vw, 2.5rem);
+            border-bottom: 1px solid #dfe7e2;
+            background: #ffffff;
+        }
+
+        .topbar h1 {
+            margin: 0;
+            font-size: clamp(1.5rem, 2.5vw, 2rem);
+        }
+
+        .topbar p {
+            margin: 0.2rem 0 0;
+            color: #52635a;
+        }
+
+        .session {
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            flex-wrap: wrap;
+            gap: 0.75rem;
+            text-align: right;
+        }
+
+        .layout {
+            display: grid;
+            grid-template-columns: minmax(280px, 380px) minmax(0, 1fr);
+            gap: 1rem;
+            width: min(1120px, 100%);
+            margin: 0 auto;
+            padding: 1rem;
+        }
+
+        .panel {
+            border: 1px solid #dfe7e2;
+            border-radius: 8px;
+            padding: 1rem;
+            background: #ffffff;
+        }
+
+        .panel h2 {
+            margin: 0 0 1rem;
+            font-size: 1.1rem;
+        }
+
+        .form-stack {
+            display: grid;
+            gap: 0.85rem;
+        }
+
+        .button-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.6rem;
+        }
+
+        .message-panel {
+            align-self: start;
+        }
+
+        .messages {
+            grid-row: span 2;
+        }
+
+        .message-list {
+            display: grid;
+            gap: 0.75rem;
+            margin: 0;
+            padding: 0;
+            list-style: none;
+        }
+
+        .message-item {
+            border: 1px solid #dfe7e2;
+            border-radius: 8px;
+            padding: 0.85rem;
+        }
+
+        .message-meta {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            color: #52635a;
+            font-size: 0.9rem;
+        }
+
+        .message-text {
+            margin: 0.5rem 0 0;
+            white-space: pre-wrap;
+        }
+
+        .empty {
+            color: #52635a;
+        }
+
+        .status {
+            min-height: 1.5rem;
+            margin: 0;
+            color: #52635a;
+        }
+
+        .status.error {
+            color: #b42318;
+        }
+
+        .status.success {
+            color: #087f5b;
+        }
+
+        .api-checks {
+            grid-column: 1 / -1;
+        }
+
+        .api-grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 0.75rem;
+        }
+
+        [hidden] {
+            display: none !important;
+        }
+
+        @media (max-width: 760px) {
+            .topbar {
+                align-items: flex-start;
+                flex-direction: column;
+            }
+
+            .session {
+                justify-content: flex-start;
+                text-align: left;
+            }
+
+            .layout,
+            .api-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .messages,
+            .api-checks {
+                grid-column: auto;
+                grid-row: auto;
+            }
+        }
+    </style>
 </head>
 
 <body>
-    <h1>API Test</h1>
-    <button onclick="callApi()">Call API</button>
-    <pre id="result"></pre>
-    <button onclick="callEcho()">Call Echo</button>
-    <pre id="result2"></pre>
+    <header class="topbar">
+        <div>
+            <h1>Simple Web</h1>
+            <p>Login and message board</p>
+        </div>
+        <div class="session">
+            <span id="user-status">Checking session...</span>
+            <button id="logout-button" class="secondary" type="button" hidden>Logout</button>
+        </div>
+    </header>
 
-    <h1>Messages</h1>
-    <input id="name" placeholder="Name">
-    <input id="message" placeholder="Message">
-    <button onclick="addMessage()">Add Message</button>
+    <main class="layout">
+        <section id="auth-panel" class="panel">
+            <h2>Login</h2>
+            <form id="auth-form" class="form-stack">
+                <label>
+                    Username
+                    <input id="username" autocomplete="username" placeholder="tom" required>
+                </label>
+                <label>
+                    Password
+                    <input id="password" type="password" autocomplete="current-password" required>
+                </label>
+                <div class="button-row">
+                    <button type="submit">Login</button>
+                    <button id="register-button" class="secondary" type="button">Register</button>
+                </div>
+                <p id="auth-status" class="status"></p>
+            </form>
+        </section>
 
-    <pre id="message_result"></pre>
+        <section id="message-panel" class="panel message-panel" hidden>
+            <h2>New Message</h2>
+            <form id="message-form" class="form-stack">
+                <label>
+                    Message
+                    <textarea id="message" maxlength="1000" placeholder="Write something..."></textarea>
+                </label>
+                <div class="button-row">
+                    <button type="submit">Add Message</button>
+                    <button id="refresh-button" class="secondary" type="button">Refresh</button>
+                </div>
+                <p id="message-status" class="status"></p>
+            </form>
+        </section>
 
+        <section class="panel messages">
+            <h2>Messages</h2>
+            <ul id="message-list" class="message-list"></ul>
+        </section>
 
+        <section class="panel api-checks">
+            <h2>API Checks</h2>
+            <div class="api-grid">
+                <div class="form-stack">
+                    <button id="hello-button" class="secondary" type="button">Call API</button>
+                    <pre id="result"></pre>
+                </div>
+                <div class="form-stack">
+                    <button id="echo-button" class="secondary" type="button">Call Echo</button>
+                    <pre id="result2"></pre>
+                </div>
+            </div>
+        </section>
+    </main>
 
     <script>
-        async function callApi() {
-            const res = await fetch("/api/hello");
-            const data = await res.json();
-            document.getElementById("result").textContent =
-                JSON.stringify(data, null, 2);
+        const tokenKey = "simple-web-auth-token";
+        let authToken = localStorage.getItem(tokenKey) || "";
+        let currentUser = null;
+
+        const elements = {
+            authForm: document.getElementById("auth-form"),
+            authPanel: document.getElementById("auth-panel"),
+            authStatus: document.getElementById("auth-status"),
+            echoButton: document.getElementById("echo-button"),
+            helloButton: document.getElementById("hello-button"),
+            logoutButton: document.getElementById("logout-button"),
+            message: document.getElementById("message"),
+            messageForm: document.getElementById("message-form"),
+            messageList: document.getElementById("message-list"),
+            messagePanel: document.getElementById("message-panel"),
+            messageStatus: document.getElementById("message-status"),
+            password: document.getElementById("password"),
+            refreshButton: document.getElementById("refresh-button"),
+            registerButton: document.getElementById("register-button"),
+            result: document.getElementById("result"),
+            result2: document.getElementById("result2"),
+            userStatus: document.getElementById("user-status"),
+            username: document.getElementById("username"),
+        };
+
+        function setStatus(element, message, type = "") {
+            element.textContent = message;
+            element.className = type ? `status ${type}` : "status";
         }
-        async function callEcho() {
-            fetch("/api/echo", {
+
+        function authHeaders(headers = {}) {
+            return authToken
+                ? { ...headers, Authorization: `Bearer ${authToken}` }
+                : headers;
+        }
+
+        async function parseResponse(response) {
+            const text = await response.text();
+            let data = null;
+
+            try {
+                data = text ? JSON.parse(text) : null;
+            } catch (err) {
+                data = { error: text || response.statusText };
+            }
+
+            if (!response.ok) {
+                throw new Error(data?.error || `Request failed (${response.status})`);
+            }
+
+            return data;
+        }
+
+        async function apiJson(url, options = {}) {
+            const response = await fetch(url, options);
+            return parseResponse(response);
+        }
+
+        function renderSession() {
+            const loggedIn = Boolean(authToken && currentUser);
+
+            elements.authPanel.hidden = loggedIn;
+            elements.messagePanel.hidden = !loggedIn;
+            elements.logoutButton.hidden = !loggedIn;
+            elements.userStatus.textContent = loggedIn
+                ? `Signed in as ${currentUser.username}`
+                : "Not signed in";
+        }
+
+        function setAuth(data) {
+            authToken = data.token;
+            currentUser = data.user;
+            localStorage.setItem(tokenKey, authToken);
+            elements.password.value = "";
+            renderSession();
+        }
+
+        function clearAuth() {
+            authToken = "";
+            currentUser = null;
+            localStorage.removeItem(tokenKey);
+            renderSession();
+        }
+
+        function getAuthPayload() {
+            return {
+                username: elements.username.value.trim(),
+                password: elements.password.value,
+            };
+        }
+
+        async function login() {
+            setStatus(elements.authStatus, "Logging in...");
+
+            const data = await apiJson("/api/auth/login", {
                 method: "POST",
-                headers: {
-                    "Content-Type": "application/json"
-                },
-                body: JSON.stringify({
-                    name: "Tom",
-                    message: "Hello"
-                })
-            })
-                .then(res => res.json())
-                .then(data =>
-                    document.getElementById("result2").textContent = JSON.stringify(data, null, 2)
-                );
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(getAuthPayload()),
+            });
+
+            setAuth(data);
+            setStatus(elements.messageStatus, "Logged in.", "success");
+            await loadMessages();
+        }
+
+        async function register() {
+            setStatus(elements.authStatus, "Creating account...");
+
+            const data = await apiJson("/api/auth/register", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(getAuthPayload()),
+            });
+
+            setAuth(data);
+            setStatus(elements.messageStatus, "Account created.", "success");
+            await loadMessages();
+        }
+
+        async function logout() {
+            try {
+                if (authToken) {
+                    await fetch("/api/auth/logout", {
+                        method: "POST",
+                        headers: authHeaders(),
+                    });
+                }
+            } catch (err) {
+                console.warn("Logout request failed", err);
+            } finally {
+                clearAuth();
+                setStatus(elements.authStatus, "Logged out.", "success");
+                setStatus(elements.messageStatus, "");
+            }
+        }
+
+        function renderMessages(messages) {
+            elements.messageList.replaceChildren();
+
+            if (messages.length === 0) {
+                const empty = document.createElement("li");
+                empty.className = "empty";
+                empty.textContent = "No messages yet.";
+                elements.messageList.append(empty);
+                return;
+            }
+
+            for (const item of messages) {
+                const li = document.createElement("li");
+                li.className = "message-item";
+
+                const meta = document.createElement("div");
+                meta.className = "message-meta";
+
+                const name = document.createElement("strong");
+                name.textContent = item.name;
+
+                const time = document.createElement("span");
+                time.textContent = new Date(item.created_at).toLocaleString();
+
+                const text = document.createElement("p");
+                text.className = "message-text";
+                text.textContent = item.message;
+
+                meta.append(name, time);
+                li.append(meta, text);
+                elements.messageList.append(li);
+            }
         }
 
         async function loadMessages() {
-            const res = await fetch("/api/messages");
-            const data = await res.json();
-            document.getElementById("message_result").textContent =
-                JSON.stringify(data, null, 2);
+            const messages = await apiJson("/api/messages");
+            renderMessages(messages);
         }
 
         async function addMessage() {
-            const name = document.getElementById("name").value;
-            const message = document.getElementById("message").value;
+            const message = elements.message.value.trim();
 
-            await fetch("/api/messages", {
+            if (!authToken) {
+                setStatus(elements.authStatus, "Please login first.", "error");
+                return;
+            }
+
+            if (!message) {
+                setStatus(elements.messageStatus, "Message is required.", "error");
+                return;
+            }
+
+            setStatus(elements.messageStatus, "Saving...");
+
+            await apiJson("/api/messages", {
                 method: "POST",
-                headers: {
-                    "Content-Type": "application/json"
-                },
-                body: JSON.stringify({ name, message })
+                headers: authHeaders({ "Content-Type": "application/json" }),
+                body: JSON.stringify({ message }),
             });
+
+            elements.message.value = "";
+            setStatus(elements.messageStatus, "Message added.", "success");
+            await loadMessages();
+        }
+
+        async function restoreSession() {
+            if (!authToken) {
+                renderSession();
+                await loadMessages();
+                return;
+            }
+
+            try {
+                const data = await apiJson("/api/auth/me", {
+                    headers: authHeaders(),
+                });
+                currentUser = data.user;
+                renderSession();
+            } catch (err) {
+                clearAuth();
+                setStatus(elements.authStatus, "Session expired. Please login again.", "error");
+            }
 
             await loadMessages();
         }
 
-        loadMessages();
+        async function callApi() {
+            const data = await apiJson("/api/hello");
+            elements.result.textContent = JSON.stringify(data, null, 2);
+        }
+
+        async function callEcho() {
+            const data = await apiJson("/api/echo", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    name: currentUser?.username || "Tom",
+                    message: "Hello",
+                }),
+            });
+            elements.result2.textContent = JSON.stringify(data, null, 2);
+        }
+
+        elements.authForm.addEventListener("submit", async (event) => {
+            event.preventDefault();
+
+            try {
+                await login();
+            } catch (err) {
+                setStatus(elements.authStatus, err.message, "error");
+            }
+        });
+
+        elements.registerButton.addEventListener("click", async () => {
+            if (!elements.authForm.reportValidity()) {
+                return;
+            }
+
+            try {
+                await register();
+            } catch (err) {
+                setStatus(elements.authStatus, err.message, "error");
+            }
+        });
+
+        elements.logoutButton.addEventListener("click", logout);
+
+        elements.messageForm.addEventListener("submit", async (event) => {
+            event.preventDefault();
+
+            try {
+                await addMessage();
+            } catch (err) {
+                setStatus(elements.messageStatus, err.message, "error");
+            }
+        });
+
+        elements.refreshButton.addEventListener("click", async () => {
+            try {
+                await loadMessages();
+                setStatus(elements.messageStatus, "Messages refreshed.", "success");
+            } catch (err) {
+                setStatus(elements.messageStatus, err.message, "error");
+            }
+        });
+
+        elements.helloButton.addEventListener("click", async () => {
+            try {
+                await callApi();
+            } catch (err) {
+                elements.result.textContent = err.message;
+            }
+        });
+
+        elements.echoButton.addEventListener("click", async () => {
+            try {
+                await callEcho();
+            } catch (err) {
+                elements.result2.textContent = err.message;
+            }
+        });
+
+        restoreSession().catch((err) => {
+            elements.messageList.textContent = err.message;
+        });
     </script>
 </body>
 
