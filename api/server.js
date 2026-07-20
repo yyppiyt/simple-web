@@ -248,7 +248,7 @@ app.get("/health", async (req, res) => {
   }
 });
 
-app.get("/messages", async (req, res) => {
+app.get("/messages", requireAuth, async (req, res) => {
   try {
     const result = await pool.query(
       "SELECT id, name, message, created_at FROM messages ORDER BY id DESC"
@@ -399,13 +399,13 @@ app.post("/auth/logout", requireAuth, async (req, res) => {
   }
 });
 
-app.get("/hello", (req, res) => {
+app.get("/hello", requireAuth, (req, res) => {
   res.json({
     message: "Hello from API",
   });
 });
 
-app.post("/echo", (req, res) => {
+app.post("/echo", requireAuth, (req, res) => {
   res.json({
     received: req.body,
   });

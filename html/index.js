@@ -1,11 +1,6 @@
-const tokenKey = "simple-web-auth-token";
-let authToken = localStorage.getItem(tokenKey) || "";
 let currentUser = null;
 
 const elements = {
-    authForm: document.getElementById("auth-form"),
-    authPanel: document.getElementById("auth-panel"),
-    authStatus: document.getElementById("auth-status"),
     echoButton: document.getElementById("echo-button"),
     helloButton: document.getElementById("hello-button"),
     logoutButton: document.getElementById("logout-button"),
@@ -14,13 +9,10 @@ const elements = {
     messageList: document.getElementById("message-list"),
     messagePanel: document.getElementById("message-panel"),
     messageStatus: document.getElementById("message-status"),
-    password: document.getElementById("password"),
     refreshButton: document.getElementById("refresh-button"),
-    registerButton: document.getElementById("register-button"),
     result: document.getElementById("result"),
     result2: document.getElementById("result2"),
     userStatus: document.getElementById("user-status"),
-    username: document.getElementById("username"),
 };
 
 function setStatus(element, message, type = "") {
@@ -29,108 +21,33 @@ function setStatus(element, message, type = "") {
 }
 
 function authHeaders(headers = {}) {
-    return authToken
-        ? { ...headers, Authorization: `Bearer ${authToken}` }
-        : headers;
-}
-
-async function parseResponse(response) {
-    const text = await response.text();
-    let data = null;
-
-    try {
-        data = text ? JSON.parse(text) : null;
-    } catch (err) {
-        data = { error: text || response.statusText };
-    }
-
-    if (!response.ok) {
-        throw new Error(data?.error || `Request failed (${response.status})`);
-    }
-
-    return data;
+    return SimpleWebSession.authHeaders(headers);
 }
 
 async function apiJson(url, options = {}) {
-    const response = await fetch(url, options);
-    return parseResponse(response);
-}
+    try {
+        return await SimpleWebSession.apiJson(url, options);
+    } catch (err) {
+        if (err.status === 401) {
+            SimpleWebSession.clear();
+            SimpleWebSession.goToLogin();
+        }
 
-function renderSession() {
-    const loggedIn = Boolean(authToken && currentUser);
-
-    elements.authPanel.hidden = loggedIn;
-    elements.messagePanel.hidden = !loggedIn;
-    elements.logoutButton.hidden = !loggedIn;
-    elements.userStatus.textContent = loggedIn
-        ? `Signed in as ${currentUser.username}`
-        : "Not signed in";
-}
-
-function setAuth(data) {
-    authToken = data.token;
-    currentUser = data.user;
-    localStorage.setItem(tokenKey, authToken);
-    elements.password.value = "";
-    renderSession();
-}
-
-function clearAuth() {
-    authToken = "";
-    currentUser = null;
-    localStorage.removeItem(tokenKey);
-    renderSession();
-}
-
-function getAuthPayload() {
-    return {
-        username: elements.username.value.trim(),
-        password: elements.password.value,
-    };
-}
-
-async function login() {
-    setStatus(elements.authStatus, "Logging in...");
-
-    const data = await apiJson("/api/auth/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(getAuthPayload()),
-    });
-
-    setAuth(data);
-    setStatus(elements.messageStatus, "Logged in.", "success");
-    await loadMessages();
-}
-
-async function register() {
-    setStatus(elements.authStatus, "Creating account...");
-
-    const data = await apiJson("/api/auth/register", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(getAuthPayload()),
-    });
-
-    setAuth(data);
-    setStatus(elements.messageStatus, "Account created.", "success");
-    await loadMessages();
+        throw err;
+    }
 }
 
 async function logout() {
     try {
-        if (authToken) {
-            await fetch("/api/auth/logout", {
-                method: "POST",
-                headers: authHeaders(),
-            });
-        }
+        await fetch("/api/auth/logout", {
+            method: "POST",
+            headers: authHeaders(),
+        });
     } catch (err) {
         console.warn("Logout request failed", err);
     } finally {
-        clearAuth();
-        setStatus(elements.authStatus, "Logged out.", "success");
-        setStatus(elements.messageStatus, "");
+        SimpleWebSession.clear();
+        SimpleWebSession.goToLogin();
     }
 }
 
@@ -169,17 +86,14 @@ function renderMessages(messages) {
 }
 
 async function loadMessages() {
-    const messages = await apiJson("/api/messages");
+    const messages = await apiJson("/api/messages", {
+        headers: authHeaders(),
+    });
     renderMessages(messages);
 }
 
 async function addMessage() {
     const message = elements.message.value.trim();
-
-    if (!authToken) {
-        setStatus(elements.authStatus, "Please login first.", "error");
-        return;
-    }
 
     if (!message) {
         setStatus(elements.messageStatus, "Message is required.", "error");
@@ -199,36 +113,34 @@ async function addMessage() {
     await loadMessages();
 }
 
-async function restoreSession() {
-    if (!authToken) {
-        renderSession();
-        await loadMessages();
+async function initializePage() {
+    const { error, redirecting, session } = await SimpleWebSession.routePage();
+
+    if (redirecting || !session) {
         return;
     }
 
-    try {
-        const data = await apiJson("/api/auth/me", {
-            headers: authHeaders(),
-        });
-        currentUser = data.user;
-        renderSession();
-    } catch (err) {
-        clearAuth();
-        setStatus(elements.authStatus, "Session expired. Please login again.", "error");
+    if (error) {
+        SimpleWebSession.goToLogin();
+        return;
     }
 
+    currentUser = session.user;
+    elements.userStatus.textContent = `Signed in as ${currentUser.username}`;
     await loadMessages();
 }
 
 async function callApi() {
-    const data = await apiJson("/api/hello");
+    const data = await apiJson("/api/hello", {
+        headers: authHeaders(),
+    });
     elements.result.textContent = JSON.stringify(data, null, 2);
 }
 
 async function callEcho() {
     const data = await apiJson("/api/echo", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: authHeaders({ "Content-Type": "application/json" }),
         body: JSON.stringify({
             name: currentUser?.username || "Tom",
             message: "Hello",
@@ -236,28 +148,6 @@ async function callEcho() {
     });
     elements.result2.textContent = JSON.stringify(data, null, 2);
 }
-
-elements.authForm.addEventListener("submit", async (event) => {
-    event.preventDefault();
-
-    try {
-        await login();
-    } catch (err) {
-        setStatus(elements.authStatus, err.message, "error");
-    }
-});
-
-elements.registerButton.addEventListener("click", async () => {
-    if (!elements.authForm.reportValidity()) {
-        return;
-    }
-
-    try {
-        await register();
-    } catch (err) {
-        setStatus(elements.authStatus, err.message, "error");
-    }
-});
 
 elements.logoutButton.addEventListener("click", logout);
 
@@ -296,6 +186,7 @@ elements.echoButton.addEventListener("click", async () => {
     }
 });
 
-restoreSession().catch((err) => {
+initializePage().catch((err) => {
+    console.warn("Page initialization failed", err);
     elements.messageList.textContent = err.message;
 });

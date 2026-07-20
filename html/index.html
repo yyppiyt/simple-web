@@ -1,80 +1,66 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="auth-pending">
 
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Simple Web Login</title>
+    <title>Simple Web</title>
     <link rel="stylesheet" href="index.css">
 </head>
 
 <body>
-    <header class="topbar">
-        <div>
-            <h1>Simple Web</h1>
-            <p>Login and message board</p>
-        </div>
-        <div class="session">
-            <span id="user-status">Checking session...</span>
-            <button id="logout-button" class="secondary" type="button" hidden>Logout</button>
-        </div>
-    </header>
+    <div class="session-loading" role="status" aria-live="polite">Checking session...</div>
 
-    <main class="layout">
-        <section id="auth-panel" class="panel">
-            <h2>Login</h2>
-            <form id="auth-form" class="form-stack">
-                <label>
-                    Username
-                    <input id="username" autocomplete="username" placeholder="tom" required>
-                </label>
-                <label>
-                    Password
-                    <input id="password" type="password" autocomplete="current-password" required>
-                </label>
-                <div class="button-row">
-                    <button type="submit">Login</button>
-                    <button id="register-button" class="secondary" type="button">Register</button>
-                </div>
-                <p id="auth-status" class="status"></p>
-            </form>
-        </section>
-
-        <section id="message-panel" class="panel message-panel" hidden>
-            <h2>New Message</h2>
-            <form id="message-form" class="form-stack">
-                <label>
-                    Message
-                    <textarea id="message" maxlength="1000" placeholder="Write something..."></textarea>
-                </label>
-                <div class="button-row">
-                    <button type="submit">Add Message</button>
-                    <button id="refresh-button" class="secondary" type="button">Refresh</button>
-                </div>
-                <p id="message-status" class="status"></p>
-            </form>
-        </section>
-
-        <section class="panel messages">
-            <h2>Messages</h2>
-            <ul id="message-list" class="message-list"></ul>
-        </section>
-
-        <section class="panel api-checks">
-            <h2>API Checks</h2>
-            <div class="api-grid">
-                <div class="form-stack">
-                    <button id="hello-button" class="secondary" type="button">Call API</button>
-                    <pre id="result"></pre>
-                </div>
-                <div class="form-stack">
-                    <button id="echo-button" class="secondary" type="button">Call Echo</button>
-                    <pre id="result2"></pre>
-                </div>
+    <div class="page-shell">
+        <header class="topbar">
+            <div>
+                <h1>Simple Web</h1>
+                <p>Message board</p>
             </div>
-        </section>
-    </main>
+            <div class="session">
+                <span id="user-status"></span>
+                <button id="logout-button" class="secondary" type="button">Logout</button>
+            </div>
+        </header>
 
+        <main class="layout">
+            <section id="message-panel" class="panel message-panel">
+                <h2>New Message</h2>
+                <form id="message-form" class="form-stack">
+                    <label>
+                        Message
+                        <textarea id="message" maxlength="1000" placeholder="Write something..."></textarea>
+                    </label>
+                    <div class="button-row">
+                        <button type="submit">Add Message</button>
+                        <button id="refresh-button" class="secondary" type="button">Refresh</button>
+                    </div>
+                    <p id="message-status" class="status" role="status" aria-live="polite"></p>
+                </form>
+            </section>
+
+            <section class="panel messages">
+                <h2>Messages</h2>
+                <ul id="message-list" class="message-list"></ul>
+            </section>
+
+            <section class="panel api-checks">
+                <h2>API Checks</h2>
+                <div class="api-grid">
+                    <div class="form-stack">
+                        <button id="hello-button" class="secondary" type="button">Call API</button>
+                        <pre id="result"></pre>
+                    </div>
+                    <div class="form-stack">
+                        <button id="echo-button" class="secondary" type="button">Call Echo</button>
+                        <pre id="result2"></pre>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <script src="session.js"></script>
     <script src="index.js"></script>
 </body>
 
