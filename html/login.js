@@ -3,7 +3,6 @@ const elements = {
     authStatus: document.getElementById("auth-status"),
     loginButton: document.getElementById("login-button"),
     password: document.getElementById("password"),
-    registerButton: document.getElementById("register-button"),
     username: document.getElementById("username"),
 };
 
@@ -14,7 +13,6 @@ function setStatus(message, type = "") {
 
 function setBusy(busy) {
     elements.loginButton.disabled = busy;
-    elements.registerButton.disabled = busy;
     elements.username.disabled = busy;
     elements.password.disabled = busy;
 }
@@ -26,12 +24,12 @@ function getAuthPayload() {
     };
 }
 
-async function authenticate(path, pendingMessage) {
+async function login() {
     setBusy(true);
-    setStatus(pendingMessage);
+    setStatus("Logging in...");
 
     try {
-        const data = await SimpleWebSession.apiJson(path, {
+        const data = await SimpleWebSession.apiJson("/api/auth/login", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(getAuthPayload()),
@@ -48,15 +46,7 @@ async function authenticate(path, pendingMessage) {
 
 elements.authForm.addEventListener("submit", async (event) => {
     event.preventDefault();
-    await authenticate("/api/auth/login", "Logging in...");
-});
-
-elements.registerButton.addEventListener("click", async () => {
-    if (!elements.authForm.reportValidity()) {
-        return;
-    }
-
-    await authenticate("/api/auth/register", "Creating account...");
+    await login();
 });
 
 SimpleWebSession.routePage()

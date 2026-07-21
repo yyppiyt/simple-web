@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en" class="auth-pending" data-theme="dark">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#071426">
+    <title>Settings | Simple Web</title>
+    <script src="theme.js"></script>
+    <link rel="stylesheet" href="index.css">
+</head>
+
+<body>
+    <div class="session-loading" role="status" aria-live="polite">Checking session...</div>
+
+    <div class="page-shell">
+        <header class="topbar">
+            <div>
+                <h1>Settings</h1>
+                <p>Account security</p>
+            </div>
+            <div class="session">
+                <span id="user-status"></span>
+                <a class="nav-button" href="/">Message board</a>
+                <button
+                    class="theme-toggle"
+                    data-theme-toggle
+                    type="button"
+                    role="switch"
+                    aria-checked="true"
+                    aria-label="Dark mode"
+                    title="Switch to light mode"
+                >
+                    <span class="theme-toggle-track" aria-hidden="true">
+                        <span class="theme-toggle-thumb"></span>
+                    </span>
+                    <span>Dark mode</span>
+                </button>
+                <button id="logout-button" class="secondary" type="button">Logout</button>
+            </div>
+        </header>
+
+        <main class="settings-layout">
+            <section class="panel settings-panel" aria-labelledby="password-title">
+                <div class="settings-heading">
+                    <p class="eyebrow">Security</p>
+                    <h2 id="password-title">Change password</h2>
+                    <p>Enter your current password, then choose a stronger new password.</p>
+                </div>
+
+                <form id="password-form" class="form-stack">
+                    <div class="form-field">
+                        <label for="current-password">Current password</label>
+                        <input
+                            id="current-password"
+                            name="currentPassword"
+                            type="password"
+                            autocomplete="current-password"
+                            required
+                        >
+                    </div>
+
+                    <div class="form-field">
+                        <label for="new-password">New password</label>
+                        <input
+                            id="new-password"
+                            name="newPassword"
+                            type="password"
+                            autocomplete="new-password"
+                            aria-describedby="password-requirements new-password-limit"
+                            required
+                        >
+                        <p id="new-password-limit" class="field-hint" aria-live="polite"></p>
+                    </div>
+
+                    <section
+                        id="password-requirements"
+                        class="password-requirements"
+                        aria-labelledby="requirements-title"
+                    >
+                        <h3 id="requirements-title">Password requirements</h3>
+                        <ul class="requirement-list">
+                            <li data-password-rule="username">
+                                <span class="requirement-check" role="img" aria-label="Not met"></span>
+                                <span>Does not contain your username</span>
+                            </li>
+                            <li data-password-rule="mixedCase">
+                                <span class="requirement-check" role="img" aria-label="Not met"></span>
+                                <span>Contains uppercase and lowercase letters</span>
+                            </li>
+                            <li data-password-rule="number">
+                                <span class="requirement-check" role="img" aria-label="Not met"></span>
+                                <span>Contains a number</span>
+                            </li>
+                            <li data-password-rule="special">
+                                <span class="requirement-check" role="img" aria-label="Not met"></span>
+                                <span>Contains a special character</span>
+                            </li>
+                            <li data-password-rule="common">
+                                <span class="requirement-check" role="img" aria-label="Not met"></span>
+                                <span>Is not a commonly used password</span>
+                            </li>
+                            <li data-password-rule="length">
+                                <span class="requirement-check" role="img" aria-label="Not met"></span>
+                                <span>Minimum password length</span>
+                                <span class="requirement-value" aria-label="8 characters">8</span>
+                            </li>
+                        </ul>
+                        <p
+                            id="requirements-summary"
+                            class="sr-only"
+                            role="status"
+                            aria-live="polite"
+                        >0 of 6 password requirements met.</p>
+                    </section>
+
+                    <div class="form-field">
+                        <label for="confirm-password">Confirm new password</label>
+                        <input
+                            id="confirm-password"
+                            name="confirmPassword"
+                            type="password"
+                            autocomplete="new-password"
+                            aria-describedby="confirm-status"
+                            required
+                        >
+                        <p id="confirm-status" class="field-hint" aria-live="polite"></p>
+                    </div>
+
+                    <div class="button-row">
+                        <button id="change-password-button" type="submit" disabled>Change password</button>
+                    </div>
+                    <p id="password-status" class="status" role="status" aria-live="polite"></p>
+                </form>
+            </section>
+        </main>
+    </div>
+
+    <script src="password-policy.js"></script>
+    <script src="session.js"></script>
+    <script src="settings.js"></script>
+</body>
+
+</html>

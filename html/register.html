@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en" class="auth-pending" data-theme="dark">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#071426">
+    <title>Create account | Simple Web</title>
+    <script src="theme.js"></script>
+    <link rel="stylesheet" href="index.css">
+</head>
+
+<body>
+    <div class="session-loading" role="status" aria-live="polite">Checking session...</div>
+
+    <div class="page-shell login-page-shell">
+        <div class="login-toolbar">
+            <button
+                class="theme-toggle"
+                data-theme-toggle
+                type="button"
+                role="switch"
+                aria-checked="true"
+                aria-label="Dark mode"
+                title="Switch to light mode"
+            >
+                <span class="theme-toggle-track" aria-hidden="true">
+                    <span class="theme-toggle-thumb"></span>
+                </span>
+                <span>Dark mode</span>
+            </button>
+        </div>
+
+        <main class="login-layout">
+            <section class="panel login-panel" aria-labelledby="register-title">
+                <div class="login-heading">
+                    <p class="eyebrow">Simple Web</p>
+                    <h1 id="register-title">Create account</h1>
+                    <p>Choose a username and a secure password.</p>
+                </div>
+
+                <form id="register-form" class="form-stack">
+                    <div class="form-field">
+                        <label for="username">Username</label>
+                        <input
+                            id="username"
+                            name="username"
+                            autocomplete="username"
+                            autocapitalize="none"
+                            spellcheck="false"
+                            minlength="3"
+                            maxlength="32"
+                            pattern="[A-Za-z0-9_]{3,32}"
+                            title="Use 3-32 letters, numbers, or underscores."
+                            placeholder="tom"
+                            required
+                        >
+                    </div>
+
+                    <div class="form-field">
+                        <label for="password">Password</label>
+                        <input
+                            id="password"
+                            name="password"
+                            type="password"
+                            autocomplete="new-password"
+                            aria-describedby="registration-requirements registration-password-limit"
+                            required
+                        >
+                        <p id="registration-password-limit" class="field-hint" aria-live="polite"></p>
+                    </div>
+
+                    <section
+                        id="registration-requirements"
+                        class="password-requirements registration-requirements"
+                        aria-labelledby="registration-requirements-title"
+                    >
+                        <h2 id="registration-requirements-title">Password requirements</h2>
+                        <ul class="requirement-list">
+                            <li data-registration-password-rule="username">
+                                <span class="requirement-check" role="img" aria-label="Not met"></span>
+                                <span>Does not contain your username</span>
+                            </li>
+                            <li data-registration-password-rule="mixedCase">
+                                <span class="requirement-check" role="img" aria-label="Not met"></span>
+                                <span>Contains uppercase and lowercase letters</span>
+                            </li>
+                            <li data-registration-password-rule="number">
+                                <span class="requirement-check" role="img" aria-label="Not met"></span>
+                                <span>Contains a number</span>
+                            </li>
+                            <li data-registration-password-rule="special">
+                                <span class="requirement-check" role="img" aria-label="Not met"></span>
+                                <span>Contains a special character</span>
+                            </li>
+                            <li data-registration-password-rule="common">
+                                <span class="requirement-check" role="img" aria-label="Not met"></span>
+                                <span>Is not a commonly used password</span>
+                            </li>
+                            <li data-registration-password-rule="length">
+                                <span class="requirement-check" role="img" aria-label="Not met"></span>
+                                <span>Minimum password length</span>
+                                <span class="requirement-value" aria-label="8 characters">8</span>
+                            </li>
+                        </ul>
+                        <p
+                            id="registration-requirements-summary"
+                            class="sr-only"
+                            role="status"
+                            aria-live="polite"
+                        >0 of 6 password requirements met.</p>
+                    </section>
+
+                    <div class="button-row">
+                        <button id="register-button" type="submit">Create account</button>
+                        <a class="nav-button" href="/login">Back to login</a>
+                    </div>
+                    <p id="register-status" class="status" role="status" aria-live="polite"></p>
+                </form>
+            </section>
+        </main>
+    </div>
+
+    <script src="password-policy.js"></script>
+    <script src="session.js"></script>
+    <script src="register.js"></script>
+</body>
+
+</html>

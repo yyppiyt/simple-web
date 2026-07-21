@@ -2,25 +2,19 @@
     "use strict";
 
     const tokenKey = "simple-web-auth-token";
-    const indexPaths = new Set(["/", "/index", "/index.html"]);
-    const loginPaths = new Set(["/login", "/login.html"]);
+    const authPaths = new Set([
+        "/login",
+        "/login.html",
+        "/register",
+        "/register.html",
+    ]);
 
     function normalizedPath() {
         return globalThis.location.pathname.replace(/\/+$/, "") || "/";
     }
 
-    function pageType() {
-        const path = normalizedPath();
-
-        if (indexPaths.has(path)) {
-            return "index";
-        }
-
-        if (loginPaths.has(path)) {
-            return "login";
-        }
-
-        return "other";
+    function isAuthPage() {
+        return authPaths.has(normalizedPath());
     }
 
     function getToken() {
@@ -54,7 +48,15 @@
         try {
             data = text ? JSON.parse(text) : null;
         } catch (_err) {
-            data = { error: text || response.statusText };
+            const contentType = response.headers?.get?.("content-type") || "";
+            const isHtml = contentType.includes("text/html")
+                || /^\s*(?:<!doctype\s+html|<html\b)/i.test(text);
+
+            data = {
+                error: isHtml
+                    ? `Server endpoint unavailable (${response.status}). Please update the API and try again.`
+                    : text || response.statusText,
+            };
         }
 
         if (!response.ok) {
@@ -111,13 +113,13 @@
     }
 
     async function routePage() {
-        const type = pageType();
+        const authPage = isAuthPage();
         let session = null;
 
         try {
             session = await verifySession();
         } catch (error) {
-            if (type === "login") {
+            if (authPage) {
                 revealPage();
                 return { error, redirecting: false, session: null };
             }
@@ -126,12 +128,12 @@
             return { error, redirecting: true, session: null };
         }
 
-        if (session && type !== "index") {
+        if (session && authPage) {
             goToIndex();
             return { error: null, redirecting: true, session };
         }
 
-        if (!session && type !== "login") {
+        if (!session && !authPage) {
             goToLogin();
             return { error: null, redirecting: true, session: null };
         }

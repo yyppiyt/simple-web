@@ -1,63 +1,82 @@
 <!DOCTYPE html>
-<html lang="en" class="auth-pending">
+<html lang="en" class="auth-pending" data-theme="dark">
 
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#071426">
     <title>Login | Simple Web</title>
+    <script src="theme.js"></script>
     <link rel="stylesheet" href="index.css">
 </head>
 
 <body>
     <div class="session-loading" role="status" aria-live="polite">Checking session...</div>
 
-    <main class="page-shell login-layout">
-        <section class="panel login-panel" aria-labelledby="login-title">
-            <div class="login-heading">
-                <p class="eyebrow">Simple Web</p>
-                <h1 id="login-title">Login</h1>
-                <p>Sign in to open the message board.</p>
-            </div>
+    <div class="page-shell login-page-shell">
+        <div class="login-toolbar">
+            <button
+                class="theme-toggle"
+                data-theme-toggle
+                type="button"
+                role="switch"
+                aria-checked="true"
+                aria-label="Dark mode"
+                title="Switch to light mode"
+            >
+                <span class="theme-toggle-track" aria-hidden="true">
+                    <span class="theme-toggle-thumb"></span>
+                </span>
+                <span>Dark mode</span>
+            </button>
+        </div>
 
-            <form id="auth-form" class="form-stack">
-                <div class="form-field">
-                    <label for="username">Username</label>
-                    <input
-                        id="username"
-                        name="username"
-                        autocomplete="username"
-                        autocapitalize="none"
-                        spellcheck="false"
-                        minlength="3"
-                        maxlength="32"
-                        pattern="[A-Za-z0-9_]{3,32}"
-                        title="Use 3-32 letters, numbers, or underscores."
-                        placeholder="tom"
-                        required
-                    >
+        <main class="login-layout">
+            <section class="panel login-panel" aria-labelledby="login-title">
+                <div class="login-heading">
+                    <p class="eyebrow">Simple Web</p>
+                    <h1 id="login-title">Login</h1>
+                    <p>Sign in to open the message board.</p>
                 </div>
 
-                <div class="form-field">
-                    <label for="password">Password</label>
-                    <input
-                        id="password"
-                        name="password"
-                        type="password"
-                        autocomplete="current-password"
-                        minlength="8"
-                        maxlength="128"
-                        required
-                    >
-                </div>
+                <form id="auth-form" class="form-stack">
+                    <div class="form-field">
+                        <label for="username">Username</label>
+                        <input
+                            id="username"
+                            name="username"
+                            autocomplete="username"
+                            autocapitalize="none"
+                            spellcheck="false"
+                            minlength="3"
+                            maxlength="32"
+                            pattern="[A-Za-z0-9_]{3,32}"
+                            title="Use 3-32 letters, numbers, or underscores."
+                            placeholder="tom"
+                            required
+                        >
+                    </div>
 
-                <div class="button-row">
-                    <button id="login-button" type="submit">Login</button>
-                    <button id="register-button" class="secondary" type="button">Register</button>
-                </div>
-                <p id="auth-status" class="status" role="status" aria-live="polite"></p>
-            </form>
-        </section>
-    </main>
+                    <div class="form-field">
+                        <label for="password">Password</label>
+                        <input
+                            id="password"
+                            name="password"
+                            type="password"
+                            autocomplete="current-password"
+                            required
+                        >
+                    </div>
+
+                    <div class="button-row">
+                        <button id="login-button" type="submit">Login</button>
+                        <a class="nav-button" href="/register">Create account</a>
+                    </div>
+                    <p id="auth-status" class="status" role="status" aria-live="polite"></p>
+                </form>
+            </section>
+        </main>
+    </div>
 
     <script src="session.js"></script>
     <script src="login.js"></script>

@@ -8,6 +8,49 @@ const sessionDays = 7;
 const passwordIterations = 120000;
 const passwordKeyLength = 32;
 const passwordDigest = "sha256";
+const minimumPasswordLength = 8;
+const maximumPasswordLength = 128;
+const commonPasswordValues = [
+  "00000000",
+  "11111111",
+  "123456",
+  "1234567",
+  "12345678",
+  "123456789",
+  "1234567890",
+  "1q2w3e4r",
+  "1qaz2wsx",
+  "abc123",
+  "abc12345",
+  "admin",
+  "admin123",
+  "baseball",
+  "dragon",
+  "football",
+  "iloveyou",
+  "letmein",
+  "login",
+  "master",
+  "monkey",
+  "monkey123",
+  "p@ssw0rd",
+  "passw0rd",
+  "password",
+  "password1",
+  "password123",
+  "princess",
+  "qwerty",
+  "qwerty1",
+  "qwerty123",
+  "qwertyuiop",
+  "shadow",
+  "sunshine",
+  "superman",
+  "trustno1",
+  "welcome",
+  "welcome1",
+  "zaq12wsx",
+];
 
 app.use(express.json());
 
@@ -73,6 +116,68 @@ function validateUsername(username) {
 
 function getPassword(password) {
   return typeof password === "string" ? password : "";
+}
+
+function normalizePasswordText(value) {
+  return String(value).normalize("NFKC").toLowerCase();
+}
+
+function getCommonPasswordKeys(value) {
+  const normalized = normalizePasswordText(value);
+  const alphaNumeric = normalized.replace(/[^a-z0-9]/g, "");
+  const deLeeted = normalized
+    .replace(/[@4]/g, "a")
+    .replace(/3/g, "e")
+    .replace(/0/g, "o")
+    .replace(/[$5]/g, "s")
+    .replace(/7/g, "t")
+    .replace(/[^a-z0-9]/g, "");
+
+  return [...new Set([normalized, alphaNumeric, deLeeted])];
+}
+
+const commonPasswordKeys = new Set(
+  commonPasswordValues.flatMap(getCommonPasswordKeys)
+);
+
+function getPasswordRequirements(password, username) {
+  const normalizedPassword = normalizePasswordText(password);
+  const normalizedUsername = normalizePasswordText(username);
+  const passwordLength = Array.from(password).length;
+  const common = getCommonPasswordKeys(password).some((key) =>
+    commonPasswordKeys.has(key)
+  );
+
+  return {
+    username:
+      Boolean(password) &&
+      (!normalizedUsername || !normalizedPassword.includes(normalizedUsername)),
+    mixedCase: /\p{Ll}/u.test(password) && /\p{Lu}/u.test(password),
+    number: /\p{N}/u.test(password),
+    special: /[\p{P}\p{S}]/u.test(password),
+    common: Boolean(password) && !common,
+    length: passwordLength >= minimumPasswordLength,
+    maximumLength: passwordLength <= maximumPasswordLength,
+  };
+}
+
+function getPasswordRequirementError(requirements) {
+  const messages = {
+    username: "must not contain the username",
+    mixedCase: "must contain uppercase and lowercase letters",
+    number: "must contain a number",
+    special: "must contain a special character",
+    common: "must not be a commonly used password",
+    length: `must be at least ${minimumPasswordLength} characters`,
+    maximumLength: `must be no more than ${maximumPasswordLength} characters`,
+  };
+  const failures = Object.entries(requirements)
+    .filter(([, met]) => !met)
+    .map(([name]) => messages[name]);
+
+  return failures.length > 0
+    ? `password ${failures.join("; ")}`
+    : "";
 }
 
 function getMessage(message) {
@@ -153,14 +258,14 @@ function getSessionExpiry() {
   return expiresAt;
 }
 
-async function createSession(userId) {
+async function createSession(userId, executor = pool) {
   const token = crypto.randomBytes(32).toString("hex");
   const tokenHash = hashToken(token);
   const expiresAt = getSessionExpiry();
 
-  await pool.query("DELETE FROM user_sessions WHERE expires_at <= NOW()");
+  await executor.query("DELETE FROM user_sessions WHERE expires_at <= NOW()");
 
-  const result = await pool.query(
+  const result = await executor.query(
     `INSERT INTO user_sessions (user_id, token_hash, expires_at)
      VALUES ($1, $2, $3)
      RETURNING expires_at`,
@@ -291,10 +396,10 @@ app.post("/messages", requireAuth, async (req, res) => {
   }
 });
 
-app.post("/auth/register", async (req, res) => {
+app.post("/auth/register", async (req, res, next) => {
   try {
-    const username = normalizeUsername(req.body.username);
-    const password = getPassword(req.body.password);
+    const username = normalizeUsername(req.body?.username);
+    const password = getPassword(req.body?.password);
 
     if (!validateUsername(username)) {
       return res.status(400).json({
@@ -302,9 +407,14 @@ app.post("/auth/register", async (req, res) => {
       });
     }
 
-    if (password.length < 8 || password.length > 128) {
+    const passwordRequirements = getPasswordRequirements(password, username);
+    const passwordError = getPasswordRequirementError(passwordRequirements);
+
+    if (passwordError) {
       return res.status(400).json({
-        error: "password must be 8-128 characters",
+        error: passwordError,
+        code: "PASSWORD_REQUIREMENTS",
+        requirements: passwordRequirements,
       });
     }
 
@@ -330,16 +440,17 @@ app.post("/auth/register", async (req, res) => {
       });
     }
 
-    res.status(500).json({
-      error: err.message,
-    });
+    next(err);
   }
 });
 
-app.post("/auth/login", async (req, res) => {
+app.post("/auth/login", async (req, res, next) => {
+  let client = null;
+  let transactionOpen = false;
+
   try {
-    const username = normalizeUsername(req.body.username);
-    const password = getPassword(req.body.password);
+    const username = normalizeUsername(req.body?.username);
+    const password = getPassword(req.body?.password);
 
     const result = await pool.query(
       "SELECT id, username, password_hash, created_at FROM users WHERE username = $1",
@@ -365,7 +476,33 @@ app.post("/auth/login", async (req, res) => {
     }
 
     const user = publicUser(userRow);
-    const session = await createSession(user.id);
+    client = await pool.connect();
+    await client.query("BEGIN");
+    transactionOpen = true;
+
+    const lockedUserResult = await client.query(
+      `SELECT password_hash
+       FROM users
+       WHERE id = $1
+       FOR UPDATE`,
+      [user.id]
+    );
+
+    if (
+      lockedUserResult.rows.length === 0 ||
+      lockedUserResult.rows[0].password_hash !== userRow.password_hash
+    ) {
+      await client.query("ROLLBACK");
+      transactionOpen = false;
+
+      return res.status(401).json({
+        error: "invalid username or password",
+      });
+    }
+
+    const session = await createSession(user.id, client);
+    await client.query("COMMIT");
+    transactionOpen = false;
 
     res.json({
       user,
@@ -373,9 +510,17 @@ app.post("/auth/login", async (req, res) => {
       expires_at: session.expires_at,
     });
   } catch (err) {
-    res.status(500).json({
-      error: err.message,
-    });
+    if (client && transactionOpen) {
+      try {
+        await client.query("ROLLBACK");
+      } catch (rollbackError) {
+        console.error("Failed to roll back login", rollbackError);
+      }
+    }
+
+    next(err);
+  } finally {
+    client?.release();
   }
 });
 
@@ -383,6 +528,117 @@ app.get("/auth/me", requireAuth, (req, res) => {
   res.json({
     user: req.user,
   });
+});
+
+app.post("/auth/change-password", requireAuth, async (req, res, next) => {
+  let client = null;
+  let transactionOpen = false;
+
+  try {
+    const currentPassword = getPassword(req.body?.currentPassword);
+    const newPassword = getPassword(req.body?.newPassword);
+
+    if (!currentPassword) {
+      return res.status(400).json({
+        error: "current password is required",
+        code: "CURRENT_PASSWORD_REQUIRED",
+      });
+    }
+
+    const requirements = getPasswordRequirements(
+      newPassword,
+      req.user.username
+    );
+    const passwordError = getPasswordRequirementError(requirements);
+
+    if (passwordError) {
+      return res.status(400).json({
+        error: passwordError,
+        code: "PASSWORD_REQUIREMENTS",
+        requirements,
+      });
+    }
+
+    const userResult = await pool.query(
+      "SELECT password_hash FROM users WHERE id = $1",
+      [req.user.id]
+    );
+
+    if (userResult.rows.length === 0) {
+      return res.status(409).json({
+        error: "account changed; please reload and try again",
+        code: "ACCOUNT_CHANGED",
+      });
+    }
+
+    const currentPasswordHash = userResult.rows[0].password_hash;
+    const currentPasswordMatches = await verifyPassword(
+      currentPassword,
+      currentPasswordHash
+    );
+
+    if (!currentPasswordMatches) {
+      return res.status(403).json({
+        error: "current password is incorrect",
+        code: "CURRENT_PASSWORD_INVALID",
+      });
+    }
+
+    const passwordIsUnchanged = newPassword === currentPassword;
+
+    if (passwordIsUnchanged) {
+      return res.status(400).json({
+        error: "new password must be different from the current password",
+        code: "PASSWORD_UNCHANGED",
+      });
+    }
+
+    const newPasswordHash = await hashPassword(newPassword);
+    client = await pool.connect();
+    await client.query("BEGIN");
+    transactionOpen = true;
+
+    const updateResult = await client.query(
+      `UPDATE users
+       SET password_hash = $1
+       WHERE id = $2 AND password_hash = $3
+       RETURNING id`,
+      [newPasswordHash, req.user.id, currentPasswordHash]
+    );
+
+    if (updateResult.rows.length === 0) {
+      await client.query("ROLLBACK");
+      transactionOpen = false;
+
+      return res.status(409).json({
+        error: "password changed in another request; please try again",
+        code: "PASSWORD_CHANGED_RETRY",
+      });
+    }
+
+    await client.query(
+      "DELETE FROM user_sessions WHERE user_id = $1 AND id <> $2",
+      [req.user.id, req.sessionId]
+    );
+    await client.query("COMMIT");
+    transactionOpen = false;
+
+    res.json({
+      message: "Password changed. Other sessions have been signed out.",
+    });
+  } catch (err) {
+    if (client && transactionOpen) {
+      try {
+        await client.query("ROLLBACK");
+      } catch (rollbackError) {
+        console.error("Failed to roll back password change", rollbackError);
+      }
+    }
+
+    next(err);
+  } finally {
+    client?.release();
+  }
 });
 
 app.post("/auth/logout", requireAuth, async (req, res) => {
