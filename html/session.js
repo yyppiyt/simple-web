@@ -7,6 +7,8 @@
         "/login.html",
         "/register",
         "/register.html",
+        "/verify-2fa",
+        "/verify-2fa.html",
     ]);
 
     function normalizedPath() {
@@ -112,6 +114,28 @@
         globalThis.location.replace("/login");
     }
 
+    function renderUserBadge(element, user) {
+        element.replaceChildren();
+        element.className = "user-badge";
+
+        const avatar = user?.avatar_data
+            ? document.createElement("img")
+            : document.createElement("span");
+        avatar.className = "user-avatar";
+
+        if (user?.avatar_data) {
+            avatar.src = user.avatar_data;
+            avatar.alt = "";
+        } else {
+            avatar.textContent = (user?.username || "?").slice(0, 1).toUpperCase();
+            avatar.setAttribute("aria-hidden", "true");
+        }
+
+        const username = document.createElement("span");
+        username.textContent = user?.username || "User";
+        element.append(avatar, username);
+    }
+
     async function routePage() {
         const authPage = isAuthPage();
         let session = null;
@@ -148,6 +172,7 @@
         clear: clearSession,
         goToIndex,
         goToLogin,
+        renderUserBadge,
         routePage,
         set: setSession,
     };

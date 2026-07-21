@@ -12,6 +12,7 @@ const elements = {
     passwordForm: document.getElementById("password-form"),
     requirementsSummary: document.getElementById("requirements-summary"),
     passwordStatus: document.getElementById("password-status"),
+    twoFactorSummary: document.getElementById("two-factor-summary"),
     userStatus: document.getElementById("user-status"),
 };
 
@@ -174,7 +175,10 @@ SimpleWebSession.routePage()
         }
 
         currentUser = session.user;
-        elements.userStatus.textContent = `Signed in as ${currentUser.username}`;
+        SimpleWebSession.renderUserBadge(elements.userStatus, currentUser);
+        elements.twoFactorSummary.textContent = currentUser.two_factor_enabled
+            ? "2FA is enabled. Manage or disable it with a current verification code."
+            : "2FA is off. Add a verification code from your authenticator app.";
         updateFormState();
         elements.currentPassword.focus();
     })

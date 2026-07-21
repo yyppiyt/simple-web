@@ -300,6 +300,43 @@ pre {
     gap: 0.85rem;
 }
 
+.user-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.55rem;
+    font-weight: 700;
+}
+
+.user-avatar {
+    display: grid;
+    width: 2.5rem;
+    height: 2.5rem;
+    flex: 0 0 auto;
+    place-items: center;
+    overflow: hidden;
+    border: 1px solid var(--border);
+    border-radius: 50%;
+    color: var(--primary-text);
+    background: var(--primary);
+    object-fit: cover;
+}
+
+.avatar-editor {
+    display: grid;
+    justify-items: center;
+    gap: 1.25rem;
+}
+
+.avatar-preview {
+    width: 10rem;
+    height: 10rem;
+    font-size: 3rem;
+}
+
+.file-input {
+    max-width: 30rem;
+}
+
 .form-field {
     display: grid;
     gap: 0.35rem;
@@ -453,9 +490,47 @@ pre {
 }
 
 .settings-layout {
+    display: grid;
+    gap: 1rem;
     width: min(760px, 100%);
     margin: 0 auto;
     padding: 1rem;
+}
+
+.security-option .settings-heading {
+    margin-bottom: 1rem;
+}
+
+.qr-code {
+    display: block;
+    width: 240px;
+    max-width: 100%;
+    margin: 0 auto;
+    border: 8px solid #ffffff;
+    border-radius: 8px;
+    background: #ffffff;
+}
+
+.seed-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 0.6rem;
+}
+
+.seed-value {
+    min-width: 0;
+    overflow-wrap: anywhere;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 0.75rem;
+    color: var(--code-text);
+    background: var(--code-background);
+    font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+    letter-spacing: 0.08em;
+}
+
+@media (max-width: 480px) {
+    .seed-row { grid-template-columns: 1fr; }
 }
 
 .settings-panel {

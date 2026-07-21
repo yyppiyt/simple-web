@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="en" class="auth-pending" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#071426">
+    <title>Verify 2FA | Simple Web</title>
+    <script src="theme.js"></script>
+    <link rel="stylesheet" href="index.css">
+</head>
+<body>
+    <div class="session-loading" role="status">Checking session...</div>
+    <div class="page-shell login-page-shell">
+        <div class="login-toolbar"><button class="theme-toggle" data-theme-toggle type="button" role="switch" aria-checked="true"><span class="theme-toggle-track" aria-hidden="true"><span class="theme-toggle-thumb"></span></span><span>Dark mode</span></button></div>
+        <main class="login-layout">
+            <section class="panel login-panel" aria-labelledby="verify-title">
+                <div class="login-heading"><p class="eyebrow">Secure sign-in</p><h1 id="verify-title">Two-factor verification</h1><p>Enter the 6-digit code from your authenticator app.</p></div>
+                <form id="verify-form" class="form-stack">
+                    <div class="form-field"><label for="code">Verification code</label><input id="code" name="code" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6}" minlength="6" maxlength="6" required></div>
+                    <div class="button-row"><button id="verify-button" type="submit">Verify</button><a class="nav-button" href="/login">Back to login</a></div>
+                    <p id="verify-status" class="status" role="status" aria-live="polite"></p>
+                </form>
+            </section>
+        </main>
+    </div>
+    <script src="session.js"></script><script src="verify-2fa.js"></script>
+</body>
+</html>

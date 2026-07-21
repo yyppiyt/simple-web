@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en" class="auth-pending" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#071426">
+    <title>Profile icon | Simple Web</title>
+    <script src="theme.js"></script>
+    <link rel="stylesheet" href="index.css">
+</head>
+<body>
+    <div class="session-loading" role="status" aria-live="polite">Checking session...</div>
+    <div class="page-shell">
+        <header class="topbar">
+            <div><h1>Profile icon</h1><p>Personalize your account</p></div>
+            <div class="session">
+                <span id="user-status"></span>
+                <a class="nav-button" href="/settings">Settings</a>
+                <button class="theme-toggle" data-theme-toggle type="button" role="switch" aria-checked="true" aria-label="Dark mode" title="Switch to light mode">
+                    <span class="theme-toggle-track" aria-hidden="true"><span class="theme-toggle-thumb"></span></span>
+                    <span>Dark mode</span>
+                </button>
+                <button id="logout-button" class="secondary" type="button">Logout</button>
+            </div>
+        </header>
+        <main class="settings-layout">
+            <section class="panel settings-panel">
+                <div class="settings-heading">
+                    <p class="eyebrow">Profile</p>
+                    <h2>Choose your icon</h2>
+                    <p>Choose a PNG, JPEG, or WebP image. It will be cropped to a square.</p>
+                </div>
+                <form id="avatar-form" class="avatar-editor">
+                    <span id="avatar-preview" class="user-avatar avatar-preview" role="img" aria-label="Profile icon preview"></span>
+                    <label class="file-input" for="avatar-file">Image
+                        <input id="avatar-file" type="file" accept="image/png,image/jpeg,image/webp" required>
+                    </label>
+                    <div class="button-row">
+                        <button id="save-button" type="submit" disabled>Save icon</button>
+                        <button id="remove-button" class="secondary" type="button">Remove icon</button>
+                    </div>
+                    <p id="avatar-status" class="status" role="status" aria-live="polite"></p>
+                </form>
+            </section>
+        </main>
+    </div>
+    <script src="session.js"></script>
+    <script src="profile-icon.js"></script>
+</body>
+</html>

@@ -35,6 +35,13 @@ async function login() {
             body: JSON.stringify(getAuthPayload()),
         });
 
+        if (data.requires_2fa && data.challenge_token) {
+            sessionStorage.setItem("simple-web-2fa-challenge", data.challenge_token);
+            elements.password.value = "";
+            globalThis.location.replace("/verify-2fa");
+            return;
+        }
+
         SimpleWebSession.set(data);
         elements.password.value = "";
         SimpleWebSession.goToIndex();

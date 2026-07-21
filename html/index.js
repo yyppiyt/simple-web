@@ -126,7 +126,7 @@ async function initializePage() {
     }
 
     currentUser = session.user;
-    elements.userStatus.textContent = `Signed in as ${currentUser.username}`;
+    SimpleWebSession.renderUserBadge(elements.userStatus, currentUser);
     await loadMessages();
 }
 

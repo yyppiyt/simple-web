@@ -1,6 +1,7 @@
 const express = require("express");
 const crypto = require("crypto");
 const { Pool } = require("pg");
+const QRCode = require("qrcode");
 
 const app = express();
 const port = 3000;
@@ -10,6 +11,7 @@ const passwordKeyLength = 32;
 const passwordDigest = "sha256";
 const minimumPasswordLength = 8;
 const maximumPasswordLength = 128;
+const twoFactorChallengeMinutes = 5;
 const commonPasswordValues = [
   "00000000",
   "11111111",
@@ -52,7 +54,7 @@ const commonPasswordValues = [
   "zaq12wsx",
 ];
 
-app.use(express.json());
+app.use(express.json({ limit: "1mb" }));
 
 const pool = new Pool({
   host: process.env.DB_HOST,
@@ -80,6 +82,22 @@ async function ensureSchema() {
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )
   `);
+
+  await pool.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS totp_secret TEXT");
+  await pool.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS totp_enabled BOOLEAN NOT NULL DEFAULT FALSE");
+  await pool.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_data TEXT");
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS two_factor_challenges (
+      id SERIAL PRIMARY KEY,
+      user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      token_hash TEXT NOT NULL UNIQUE,
+      expires_at TIMESTAMP NOT NULL,
+      attempts_remaining INTEGER NOT NULL DEFAULT 5,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+  await pool.query("ALTER TABLE two_factor_challenges ADD COLUMN IF NOT EXISTS attempts_remaining INTEGER NOT NULL DEFAULT 5");
 
   await pool.query(`
     CREATE TABLE IF NOT EXISTS user_sessions (
@@ -189,7 +207,64 @@ function publicUser(user) {
     id: user.id,
     username: user.username,
     created_at: user.created_at,
+    two_factor_enabled: Boolean(user.totp_enabled),
+    avatar_data: user.avatar_data || null,
   };
+}
+
+const base32Alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
+
+function base32Encode(buffer) {
+  let bits = "";
+  for (const byte of buffer) bits += byte.toString(2).padStart(8, "0");
+  let result = "";
+  for (let i = 0; i < bits.length; i += 5) {
+    result += base32Alphabet[parseInt(bits.slice(i, i + 5).padEnd(5, "0"), 2)];
+  }
+  return result;
+}
+
+function base32Decode(value) {
+  const clean = String(value).toUpperCase().replace(/[^A-Z2-7]/g, "");
+  let bits = "";
+  for (const char of clean) {
+    const index = base32Alphabet.indexOf(char);
+    if (index < 0) return Buffer.alloc(0);
+    bits += index.toString(2).padStart(5, "0");
+  }
+  const bytes = [];
+  for (let i = 0; i + 8 <= bits.length; i += 8) bytes.push(parseInt(bits.slice(i, i + 8), 2));
+  return Buffer.from(bytes);
+}
+
+function totpCode(secret, counter) {
+  const counterBuffer = Buffer.alloc(8);
+  counterBuffer.writeBigUInt64BE(BigInt(counter));
+  const digest = crypto.createHmac("sha1", base32Decode(secret)).update(counterBuffer).digest();
+  const offset = digest[digest.length - 1] & 15;
+  const number = (digest.readUInt32BE(offset) & 0x7fffffff) % 1000000;
+  return String(number).padStart(6, "0");
+}
+
+function verifyTotp(secret, code) {
+  if (!/^\d{6}$/.test(String(code || ""))) return false;
+  const counter = Math.floor(Date.now() / 30000);
+  return [-1, 0, 1].some((window) => {
+    const expected = Buffer.from(totpCode(secret, counter + window));
+    const supplied = Buffer.from(String(code));
+    return expected.length === supplied.length && crypto.timingSafeEqual(expected, supplied);
+  });
+}
+
+async function createTwoFactorChallenge(userId) {
+  const token = crypto.randomBytes(32).toString("hex");
+  const expiresAt = new Date(Date.now() + twoFactorChallengeMinutes * 60 * 1000);
+  await pool.query("DELETE FROM two_factor_challenges WHERE expires_at <= NOW() OR user_id = $1", [userId]);
+  await pool.query(
+    "INSERT INTO two_factor_challenges (user_id, token_hash, expires_at) VALUES ($1, $2, $3)",
+    [userId, hashToken(token), expiresAt]
+  );
+  return { token, expires_at: expiresAt };
 }
 
 function hashPassword(password, salt = crypto.randomBytes(16).toString("hex")) {
@@ -300,7 +375,9 @@ async function requireAuth(req, res, next) {
         user_sessions.expires_at,
         users.id,
         users.username,
-        users.created_at
+        users.created_at,
+        users.totp_enabled,
+        users.avatar_data
        FROM user_sessions
        JOIN users ON users.id = user_sessions.user_id
        WHERE user_sessions.token_hash = $1`,
@@ -453,7 +530,7 @@ app.post("/auth/login", async (req, res, next) => {
     const password = getPassword(req.body?.password);
 
     const result = await pool.query(
-      "SELECT id, username, password_hash, created_at FROM users WHERE username = $1",
+      "SELECT id, username, password_hash, created_at, totp_secret, totp_enabled FROM users WHERE username = $1",
       [username]
     );
 
@@ -476,6 +553,15 @@ app.post("/auth/login", async (req, res, next) => {
     }
 
     const user = publicUser(userRow);
+    if (userRow.totp_enabled) {
+      const challenge = await createTwoFactorChallenge(user.id);
+      return res.json({
+        requires_2fa: true,
+        challenge_token: challenge.token,
+        expires_at: challenge.expires_at,
+      });
+    }
+
     client = await pool.connect();
     await client.query("BEGIN");
     transactionOpen = true;
@@ -524,10 +610,127 @@ app.post("/auth/login", async (req, res, next) => {
   }
 });
 
+app.post("/auth/2fa/verify", async (req, res, next) => {
+  let client = null;
+  try {
+    const challengeToken = typeof req.body?.challengeToken === "string" ? req.body.challengeToken : "";
+    const code = String(req.body?.code || "").trim();
+    const result = await pool.query(
+      `SELECT two_factor_challenges.id AS challenge_id, users.*
+       FROM two_factor_challenges
+       JOIN users ON users.id = two_factor_challenges.user_id
+       WHERE two_factor_challenges.token_hash = $1
+         AND two_factor_challenges.expires_at > NOW()
+         AND two_factor_challenges.attempts_remaining > 0`,
+      [hashToken(challengeToken)]
+    );
+    if (!challengeToken || result.rows.length === 0) {
+      return res.status(401).json({ error: "verification expired; please log in again", code: "CHALLENGE_EXPIRED" });
+    }
+    const row = result.rows[0];
+    if (!row.totp_enabled || !row.totp_secret || !verifyTotp(row.totp_secret, code)) {
+      await pool.query(
+        "UPDATE two_factor_challenges SET attempts_remaining = attempts_remaining - 1 WHERE id = $1",
+        [row.challenge_id]
+      );
+      return res.status(401).json({ error: "invalid verification code", code: "INVALID_TOTP" });
+    }
+    client = await pool.connect();
+    await client.query("BEGIN");
+    const deleted = await client.query("DELETE FROM two_factor_challenges WHERE id = $1 RETURNING id", [row.challenge_id]);
+    if (deleted.rows.length === 0) {
+      await client.query("ROLLBACK");
+      return res.status(401).json({ error: "verification already used; please log in again" });
+    }
+    const session = await createSession(row.id, client);
+    await client.query("COMMIT");
+    res.json({ user: publicUser(row), token: session.token, expires_at: session.expires_at });
+  } catch (err) {
+    if (client) { try { await client.query("ROLLBACK"); } catch (_) {} }
+    next(err);
+  } finally { client?.release(); }
+});
+
+app.post("/auth/2fa/setup", requireAuth, async (req, res, next) => {
+  try {
+    const secret = base32Encode(crypto.randomBytes(20));
+    const update = await pool.query(
+      "UPDATE users SET totp_secret = $1 WHERE id = $2 AND totp_enabled = FALSE RETURNING id",
+      [secret, req.user.id]
+    );
+    if (update.rows.length === 0) {
+      return res.status(409).json({ error: "disable existing 2FA before starting a new setup" });
+    }
+    const label = encodeURIComponent(`Simple Web:${req.user.username}`);
+    const issuer = encodeURIComponent("Simple Web");
+    const uri = `otpauth://totp/${label}?secret=${secret}&issuer=${issuer}&algorithm=SHA1&digits=6&period=30`;
+    const qr_code = await QRCode.toDataURL(uri, { errorCorrectionLevel: "M", margin: 2, width: 240 });
+    res.json({ secret, uri, qr_code });
+  } catch (err) { next(err); }
+});
+
+app.post("/auth/2fa/enable", requireAuth, async (req, res, next) => {
+  try {
+    const result = await pool.query("SELECT totp_secret FROM users WHERE id = $1", [req.user.id]);
+    const secret = result.rows[0]?.totp_secret;
+    if (!secret) return res.status(400).json({ error: "start 2FA setup first" });
+    if (!verifyTotp(secret, String(req.body?.code || "").trim())) {
+      return res.status(400).json({ error: "invalid verification code" });
+    }
+    await pool.query("UPDATE users SET totp_enabled = TRUE WHERE id = $1", [req.user.id]);
+    res.json({ message: "Two-factor authentication is now enabled." });
+  } catch (err) { next(err); }
+});
+
+app.post("/auth/2fa/disable", requireAuth, async (req, res, next) => {
+  try {
+    const result = await pool.query("SELECT totp_secret, totp_enabled FROM users WHERE id = $1", [req.user.id]);
+    const row = result.rows[0];
+    if (!row?.totp_enabled) return res.status(400).json({ error: "two-factor authentication is not enabled" });
+    if (!verifyTotp(row.totp_secret, String(req.body?.code || "").trim())) {
+      return res.status(400).json({ error: "invalid verification code" });
+    }
+    await pool.query("UPDATE users SET totp_secret = NULL, totp_enabled = FALSE WHERE id = $1", [req.user.id]);
+    res.json({ message: "Two-factor authentication is now disabled." });
+  } catch (err) { next(err); }
+});
+
 app.get("/auth/me", requireAuth, (req, res) => {
   res.json({
     user: req.user,
   });
+});
+
+app.put("/auth/avatar", requireAuth, async (req, res, next) => {
+  try {
+    const avatarData = typeof req.body?.avatarData === "string"
+      ? req.body.avatarData
+      : "";
+    const match = avatarData.match(/^data:image\/(png|jpeg|webp);base64,([A-Za-z0-9+/]+={0,2})$/);
+
+    if (!match) {
+      return res.status(400).json({ error: "avatar must be a PNG, JPEG, or WebP image" });
+    }
+
+    const imageBytes = Buffer.from(match[2], "base64");
+    if (imageBytes.length === 0 || imageBytes.length > 700 * 1024) {
+      return res.status(400).json({ error: "avatar must be 700 KB or smaller" });
+    }
+
+    await pool.query("UPDATE users SET avatar_data = $1 WHERE id = $2", [avatarData, req.user.id]);
+    res.json({ avatar_data: avatarData, message: "Profile icon updated." });
+  } catch (err) {
+    next(err);
+  }
+});
+
+app.delete("/auth/avatar", requireAuth, async (req, res, next) => {
+  try {
+    await pool.query("UPDATE users SET avatar_data = NULL WHERE id = $1", [req.user.id]);
+    res.json({ avatar_data: null, message: "Profile icon removed." });
+  } catch (err) {
+    next(err);
+  }
 });
 
 app.post("/auth/change-password", requireAuth, async (req, res, next) => {
